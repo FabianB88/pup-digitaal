@@ -1,5 +1,5 @@
-// Spelregels van Planet Under Pressure, fysieke editie v2.
-// Hoofdstuknummers in de commentaren verwijzen naar de handleiding.
+// Spelregels van Planet Under Pressure, fysieke editie.
+// Bron: PUP_spelregels.pdf (22-09-2026); hoofdstuknummers in de commentaren verwijzen daarnaar.
 // De engine praat met het scherm via UI.* (ui.js); keuzes zijn promises.
 
 let S = null;            // volledige spelstaat, JSON-serialiseerbaar
@@ -57,17 +57,19 @@ function addEcon(n, why) {
   S.econ = Math.max(0, Math.min(LIMITS.econ, S.econ + n));
   log(`Economie ${n > 0 ? '+' : ''}${n} (${why}) → ${S.econ}${S.econ - before !== n ? ' (begrensd)' : ''}`, n > 0 ? 'good' : 'warn');
 }
-function addWarming(n, why) {
+// h8 atmosfeerstrip: n > 0 schuift de marker n vakjes naar rechts (slechter)
+function moveAtmos(n, why) {
   if (!n) return;
-  if (n > 0 && S.cured.rood) { log(`Opwarming stijgt niet meer (Klimaatdoorbraak) — ${why}`); return; }
-  S.warming = Math.max(0, Math.min(LIMITS.warming, S.warming + n));
-  log(`Opwarming ${n > 0 ? '+' : ''}${n} (${why}) → ${S.warming}`, n > 0 ? 'warn' : 'good');
+  const from = S.atmos, to = Math.min(ATMOS.start, from - n);
+  if (to === from) { log(`Atmosfeerstrip staat al op ${from} (${why})`); return; }
+  S.atmos = Math.max(1, to);
+  log(`Atmosfeerstrip ${n > 0 ? '−' : '+'}${Math.abs(from - to)} (${why}) → ${to < 1 ? 'voorbij 1' : to}`, n > 0 ? 'bad' : 'good');
+  if (to < 1) lose('de atmosfeermarker moet voorbij vakje 1');
+  // upkeep-strepen: alleen bij passeren naar rechts, elke keer opnieuw
+  const passed = ATMOS.upkeep.filter(t => from >= t && to <= t - 1).length;
+  if (passed) addEcon(-ATMOS.upkeepCost * passed, `upkeep-streep gepasseerd${passed > 1 ? ' (' + passed + 'x)' : ''}`);
 }
-function addCascade(n, why) {
-  S.cascade = Math.max(0, S.cascade + n);
-  log(`Cascade ${n > 0 ? '+' : ''}${n} (${why}) → ${S.cascade}`, n > 0 ? 'bad' : 'good');
-  if (S.cascade >= LIMITS.cascade) lose(`de Cascade-meter bereikt ${LIMITS.cascade}`);
-}
+const inRedZone = () => S.atmos <= ATMOS.redZone;
 
 // ── blokjes (h7 uitbraken, h8 atmosfeerstrip) ─────────────────
 function isProtected(id) {
@@ -84,7 +86,7 @@ function placeOne(id, color, ctx, chain) {
   if (color === 'rood' && ctx.shield > 0) { ctx.shield--; log(`Emergency Adaptation voorkomt 1 rood blokje in ${cname(id)}`, 'good'); return; }
   if (chain.has(id)) return;
   if (S.cubes[id][color] >= 3) { outbreak(id, color, ctx, chain); return; }
-  if (S.supply[color] <= 0) lose(`er moet een ${color} blokje worden gelegd, maar die voorraadstrip is leeg`);
+  if (S.supply[color] <= 0) lose(`er moet een ${color} blokje worden gelegd, maar die kleur is op`);
   S.supply[color]--; S.cubes[id][color]++;
   S.flash[id] = true;
 }
@@ -92,12 +94,13 @@ function outbreak(id, color, ctx, chain) {
   chain.add(id);
   if (S.buildings[id] === 'adaptatie' && !S.adaptUsed[id]) {
     S.adaptUsed[id] = true;
-    log(`Adaptatiecentrum in ${cname(id)} vangt de uitbraak op: geen Cascade, geen verspreiding`, 'good');
+    log(`Adaptatiecentrum in ${cname(id)} vangt de uitbraak op: geen atmosfeerstrip, geen verspreiding`, 'good');
     return;
   }
   log(`UITBRAAK in ${cname(id)} (${color})`, 'bad');
   S.outbreaks = (S.outbreaks || 0) + 1;
-  addCascade(1, 'uitbraak ' + cname(id));
+  if (color === 'rood' && S.cured.rood) log('Klimaatdoorbraak: rode uitbraak schuift de atmosfeerstrip niet op', 'good');
+  else moveAtmos(ATMOS.outbreak, 'uitbraak ' + cname(id));
   if (overloadKey(zoneOf(id)) === 'vertrouwensbreuk') addOnrust(1, 'Vertrouwensbreuk, uitbraak in de zone');
   for (const nb of ADJ[id]) placeOne(nb, color, ctx, chain);
 }
@@ -144,7 +147,7 @@ async function checkOverloads() {
       await UI.showCard({ img: c.img, title: `${ZONES[zone].label} raakt overbelast`,
         text: `${h} steden in deze zone hebben 2 of meer blokjes. Het fiche gaat in het zonevak en deze kaart wordt omgedraaid.`, button: 'Uitvoeren' });
       if (c.key === 'vertrouwensbreuk') addOnrust(1, 'Vertrouwensbreuk, direct');
-      if (c.key === 'ontruiming' && S.phase !== 'setup') await evacuate(zone);
+      if (c.key === 'ontruiming' && S.phase !== 'setup') await evacuate(zone);   // bij de opbouw staan er nog geen pionnen
       UI.render();
     } else if (S.overload[zone] && h <= 1) {
       log(`${ZONES[zone].label}: overbelasting voorbij (${CARD[S.overload[zone]].title} naar de aflegstapel)`, 'good');
@@ -165,19 +168,18 @@ async function evacuate(zone) {
 // ── opbouw (h4) ────────────────────────────────────────────────
 async function newGame(cfg) {
   S = {
-    v: 1, cfg, rules: { ...RULE_DEFAULTS, ...cfg.rules },
+    v: 2, cfg,
     players: cfg.players.map(p => ({ name: p.name, role: p.role, city: 'amsterdam', hand: [], slot: null })),
     cubes: Object.fromEntries(Object.keys(CITIES).map(id => [id, { rood: 0, groen: 0, zwart: 0, geel: 0 }])),
-    supply: { rood: 36, groen: 36, zwart: 36, geel: 36 },
-    cascade: START.cascade, onrust: START.onrust, econ: START.econ, warming: START.warming,
-    escDrawn: 0, escTotal: cfg.escalations,
+    supply: Object.fromEntries(COLORS.map(c => [c, LIMITS.supply])), boxed: 0,
+    atmos: ATMOS.start, onrust: START.onrust, econ: START.econ,
+    escDrawn: 0, escTotal: cfg.escalations, escRow: [],
     cured: { rood: false, groen: false, zwart: false, geel: false },
     buildings: {}, adaptUsed: {},
     playerDeck: [], playerDiscard: [], actionUsed: [], outOfGame: [],
     pressureDeck: shuffle(PRESSURE_CARDS.map(c => c.id)), pressureDiscard: [],
     overDeck: shuffle(OVERLOADS.map(c => c.id)), overDiscard: [],
     overload: Object.fromEntries(Object.keys(ZONES).map(z => [z, null])),
-    investments: [], coins: 12,
     cur: cfg.start, startPlayer: cfg.start, round: 1, turn: 0,
     phase: 'setup', actionsLeft: 4, turnFlags: {}, firstRedDone: false,
     log: [], flash: {}, result: null, outbreaks: 0,
@@ -193,6 +195,7 @@ async function newGame(cfg) {
       placeCubes(c.city, c.color, n);
       S.pressureDiscard.push(id);
       log(`Begincrisis: ${cname(c.city)} krijgt ${n} ${c.color}`);
+      await checkOverloads();   // h4: een zone kan al tijdens de begincrisis overbelast raken
     }
     // spelersdek: 56 city + 8 action, delen, dan escalations inschudden
     const deck = shuffle([...CITY_CARDS.map(c => c.id), ...ACTION_CARDS.map(c => c.id)]);
@@ -202,13 +205,13 @@ async function newGame(cfg) {
     const base = Math.floor(deck.length / k), extra = deck.length % k;
     let pos = 0;
     for (let i = 0; i < k; i++) { const sz = base + (i < extra ? 1 : 0); piles.push(deck.slice(pos, pos + sz)); pos += sz; }
-    const escs = ESCALATIONS.slice(0, k).map(e => e.id);   // I t/m k, zoals op tafel
+    // h4 stap 7: in elke stapel precies één Escalation, willekeurig welke, op een willekeurige plek
+    const escs = shuffle(ESCALATIONS.map(e => e.id)).slice(0, k);
     piles.forEach((pl, i) => { pl.push(escs[i]); shuffle(pl); });
-    // grootste stapels bovenop, kleinste onderop
+    // kleinste stapel onderop
     piles.sort((a, b) => b.length - a.length);
     S.playerDeck = piles.flat();
-    log(`Spelersdek: ${S.playerDeck.length} kaarten met ${k} Escalations ingeschud`);
-    if (S.rules.overloadInSetup) await checkOverloads();
+    log(`Spelersdek: ${S.playerDeck.length} kaarten in ${k} stapels (${piles.map(p => p.length).join('/')}), in elke stapel één Escalation`);
     S.phase = 'actions';
     await beginTurn(true);
   } catch (e) { handleErr(e); }
@@ -232,8 +235,6 @@ async function beginTurn(first = false) {
 
 async function roundStart() {
   log(`=== Rondestart ${S.round} ===`, 'head');
-  // Stille ramp werkt "aan het einde van elke ronde"
-  for (const zone in ZONES) if (overloadKey(zone) === 'stilleramp') await silentDisaster(zone);
   if (Object.values(S.buildings).includes('knooppunt')) addEcon(2, 'Economisch & Sociaal Knooppunt');
   for (const [id, type] of Object.entries(S.buildings)) {
     if (type !== 'natuur') continue;
@@ -245,16 +246,7 @@ async function roundStart() {
       removeCubes(pick, 'groen', 1, 'Natuurherstelzone');
     }
   }
-  for (const inv of S.investments) {
-    if (inv.left <= 0) continue;
-    inv.left--; S.coins++;
-    log(`Investeringsmunt van ${S.players[inv.owner].name} betaalt uit`);
-    addEcon(1, 'investering'); addWarming(-1, 'investering');
-  }
-  S.investments = S.investments.filter(i => i.left > 0);
-  if (outOf('rood') >= 8 || outOf('zwart') >= 8) addWarming(1, 'vakje 8 leeg op de ' + (outOf('rood') >= 8 ? 'rode' : 'zwarte') + ' strip');
-  const up = COLORS.filter(c => outOf(c) >= 12).length;
-  if (up) addEcon(-Math.min(2, up), `upkeep: vakje 12 leeg op ${up} strip${up > 1 ? 's' : ''}`);
+  for (const zone in ZONES) if (overloadKey(zone) === 'stilleramp') await silentDisaster(zone);
   if (S.econ <= 3) addOnrust(1, 'economie 3 of lager');
   await checkOverloads();
 }
@@ -264,8 +256,8 @@ async function silentDisaster(zone) {
   const min = Math.min(...cs.map(total));
   const opts = cs.filter(id => total(id) === min);
   const id = opts.length === 1 ? opts[0] : await UI.pickCity(`Stille ramp (${ZONES[zone].label}): gelijkspel, kies de stad met de minste blokjes.`, opts);
-  // De kaart noemt geen kleur; het team kiest een van de twee crisiskleuren van de stad.
-  const col = await UI.choose('Stille ramp', `Welke kleur krijgt ${cname(id)}? (De kaart noemt geen kleur; kies een van de twee kleuren van deze stad.)`,
+  // h10: het team kiest ook welke van de twee stadskleuren
+  const col = await UI.choose('Stille ramp', `Welke kleur krijgt ${cname(id)}? Het team kiest een van de twee kleuren van deze stad.`,
     CITIES[id].colors.map(c => ({ label: COLOR_INFO[c].label, value: c, color: c })));
   log(`Stille ramp: 1 ${col} blokje in ${cname(id)}`, 'warn');
   placeCubes(id, col, 1);
@@ -327,7 +319,7 @@ async function resolvePressure(id, i, n) {
       log(`COMPOUND ${cname(city)}: ${c.cp.text}`, 'warn');
       if (c.cp.eff === 'onrust') addOnrust(1, 'compound ' + cname(city));
       else if (c.cp.eff === 'supply') {
-        if (S.supply[c.color] > 0) { S.supply[c.color]--; S.outOfGameCubes = (S.outOfGameCubes || 0) + 1; log(`Bevoorrading ${c.color} −1: 1 blokje voorgoed uit het spel`, 'bad'); }
+        if (S.supply[c.color] > 0) { S.supply[c.color]--; S.boxed++; log(`Bevoorrading ${c.color} −1: 1 blokje voorgoed terug in de doos`, 'bad'); }
       } else if (c.cp.where === 'self') placeCubes(city, c.cp.color, 1, ctx);
       else {
         const opts = ADJ[city].filter(x => CITIES[x].coast);
@@ -344,48 +336,45 @@ async function resolvePressure(id, i, n) {
   if (overloadKey(zone) === 'standaard') { k++; why.push('overbelaste zone +1'); }
   if (c.color === 'rood' && !S.firstRedDone) {
     S.firstRedDone = true;
-    const w = Math.floor(S.warming / 3);
-    if (w > 0) { k += w; why.push(`opwarming ${S.warming}: +${w}`); }
+    if (inRedZone()) { k++; why.push('eerste rode kaart in de rode zone +1'); }
   }
   log(`${cname(city)} krijgt ${k} ${c.color}${why.length ? ' (' + why.join(', ') + ')' : ''}`);
   placeCubes(city, c.color, k, ctx);
   S.pressureDiscard.push(id);
 }
 
-// h10 Escalations
+// h11 Escalations
 async function resolveEscalation(id) {
   const c = CARD[id];
   UI.render();
-  await UI.showCard({ img: c.img, title: `${c.title}!`, text: 'Onmiddellijk uitvoeren. Stappen volgens de handleiding: tempo, uitbarsting, terugkeer, kaarteffect.', button: 'Afhandelen' });
+  await UI.showCard({ img: c.img, title: `${c.title}!`, text: 'Onmiddellijk uitvoeren: atmosfeerstrip 1 vakje op, de uitbarsting, dan de Pressure-aflegstapel geschud bovenop.', button: 'Afhandelen' });
   let skipBurst = false;
-  // reactiekaarten vóór stap 1
+  // reactiekaarten vóór je begint
   if (await offerReaction('coalition', 'Escalation getrokken. Emergency Coalition spelen?')) {
     const ch = await UI.choose('Emergency Coalition', 'Kies 1:', [
-      { label: 'Negeer de Legacy-stap', value: 'skip', note: 'Er bestaat geen Legacy-dek; hier gespeeld als: sla stap 2, de uitbarsting, over.' },
-      { label: 'Verlaag de Cascade Track met 1', value: 'cascade' }]);
-    if (ch === 'skip') skipBurst = true; else addCascade(-1, 'Emergency Coalition');
+      { label: 'Negeer de Legacy-stap', value: 'skip', note: 'Sla stap 2, de uitbarsting, helemaal over.' },
+      { label: 'Verlaag de Cascade Track met 1', value: 'atmos', note: 'Schuif de atmosfeermarker 1 vakje terug.' }]);
+    if (ch === 'skip') skipBurst = true; else moveAtmos(-1, 'Emergency Coalition');
   }
   S.adaptUsed = {};
-  // 1 tempo
-  S.escDrawn++;
-  log(`Tempo: ${S.escDrawn} Escalation${S.escDrawn > 1 ? 's' : ''} → ${TEMPO[S.escDrawn]} Pressure-kaarten per beurt`, 'warn');
-  if (S.escDrawn >= 2) addOnrust(1, 'Escalation vanaf de tweede');
-  // 2 uitbarsting
+  // 1 "Verhoog de Cascade Track met 1"
+  moveAtmos(ATMOS.escalation, c.title);
+  // 2 "Voer de bovenste Legacy-kaart uit" = de uitbarsting
   if (!skipBurst) {
     if (!S.pressureDeck.length) { S.pressureDeck = shuffle(S.pressureDiscard); S.pressureDiscard = []; }
     const b = S.pressureDeck.pop(); const bc = CARD[b];
     UI.render();
     await UI.showCard({ img: bc.img, landscape: true, title: 'Uitbarsting: onderste Pressure-kaart', text: `${cname(bc.city)} krijgt 2 ${bc.color} blokjes. Compound wordt genegeerd.`, button: 'Verder' });
-    placeCubes(bc.city, bc.color, 2);
     log(`Uitbarsting: ${cname(bc.city)} krijgt 2 ${bc.color}`, 'bad');
+    placeCubes(bc.city, bc.color, 2);
     S.pressureDiscard.push(b);
   } else log('Uitbarsting overgeslagen (Emergency Coalition)', 'good');
-  // 3 terugkeer
+  // 3 aflegstapel schudden en bovenop
   S.pressureDeck = [...shuffle(S.pressureDiscard), ...S.pressureDeck]; S.pressureDiscard = [];
-  log('Terugkeer: Pressure-aflegstapel geschud en bovenop het dek gelegd');
-  // 4 kaarteffect
-  if (S.rules.escCascade) addCascade(1, 'kaarteffect Escalation: "Verhoog de Cascade Track met 1"');
-  S.outOfGame.push(id);
+  log('Pressure-aflegstapel geschud en bovenop het dek gelegd');
+  // kaart op de rij naast het bord: die rij is de tempometer
+  S.escDrawn++; S.escRow.push(id);
+  log(`Escalation-rij: ${S.escDrawn} → ${TEMPO[S.escDrawn]} Pressure-kaarten per beurt`, 'warn');
   await checkOverloads();
   UI.render();
 }
@@ -437,7 +426,7 @@ function cityCardsIn(p) { return p.hand.filter(id => CARD[id].kind === 'city'); 
 function cardFor(p, city) { return p.hand.find(id => CARD[id].kind === 'city' && CARD[id].city === city); }
 function discard(p, id) { p.hand.splice(p.hand.indexOf(id), 1); S.playerDiscard.push(id); }
 function othersHere(p) { return S.players.filter(q => q !== p && q.city === p.city); }
-function cureNeed(p) { return hasRole(p, 'wetenschapper') ? S.rules.scientistCards : 4; }
+function cureNeed(p) { return hasRole(p, 'wetenschapper') ? CURE_CARDS_SCIENTIST : CURE_CARDS; }
 function cureBuildingOk(color, b) { return b && BUILDINGS[b].cure.includes(color); }
 
 // Beschikbaarheid per actie, voor de knoppen
@@ -452,12 +441,12 @@ function actionAvailability() {
   A.treat = left >= 1 && total(here) > 0;
   const extra = overloadKey(zoneOf(here)) === 'noodbegroting' ? 1 : 0;
   const needCard = hasRole(p, 'ingenieur') ? 0 : 1;
-  A.build = left >= 1 && !b && S.econ >= 2 && (needCard ? !!cardFor(p, here) : true) && cityCardsIn(p).length >= needCard + extra;
+  A.build = left >= 1 && !b && S.econ >= COST.build && (needCard ? !!cardFor(p, here) : true) && cityCardsIn(p).length >= needCard + extra;
   A.share = left >= 1 && othersHere(p).length > 0 && (
     !!cardFor(p, here) || othersHere(p).some(q => cardFor(q, here)) || (hasRole(p, 'diplomaat') && cityCardsIn(p).length > 0));
   A.cure = left >= 1 && !!b && COLORS.some(c => !S.cured[c] && cureBuildingOk(c, b) && cityCardsIn(p).filter(id => CARD[id].color === c).length >= cureNeed(p));
-  A.campaign = left >= 1 && S.onrust > 0 && (b === 'knooppunt' || S.econ >= 1);
-  A.invest = left >= 1 && !!b && S.econ >= 4 && S.coins >= 3;
+  A.campaign = left >= 1 && S.onrust > 0 && (b === 'knooppunt' || S.econ >= COST.campaign);
+  A.invest = left >= 1 && !!b && S.econ >= COST.invest;
   A.playCard = left >= 1 && (p.hand.some(id => CARD[id].kind === 'action' && CARD[id].type === 'actie') || (p.slot && CARD[p.slot].type === 'actie'));
   A.peek = b === 'onderzoek' && !S.turnFlags.peek && S.pressureDeck.length > 0;
   A.engFlight = hasRole(p, 'ingenieur') && left >= 1 && !!b && !S.turnFlags.engFlight && cityCardsIn(p).length > 0;
@@ -568,7 +557,7 @@ const ACTIONS = {
     if (!hasRole(p, 'ingenieur')) discard(p, cardFor(p, here));
     if (extraCard) discard(p, extraCard);
     if (moveFrom) { delete S.buildings[moveFrom]; log(`Gebouw in ${cname(moveFrom)} verplaatst`); }
-    S.buildings[here] = type; addEcon(-2, 'bouwen');
+    S.buildings[here] = type; addEcon(-COST.build, 'bouwen');
     spend(1); log(`${p.name} bouwt ${BUILDINGS[type].name} in ${cname(here)}`, 'good'); return true;
   },
   async share() {
@@ -599,7 +588,7 @@ const ACTIONS = {
     ids.forEach(id => discard(p, id));
     S.cured[col] = true; spend(1);
     log(`DOORBRAAK: ${COLOR_INFO[col].cure}!`, 'good');
-    if (col === 'rood') { S.cured.rood = false; addWarming(-3, 'Klimaatdoorbraak'); S.cured.rood = true; addEcon(2, 'Klimaatdoorbraak'); }
+    if (col === 'rood') { moveAtmos(-3, 'Klimaatdoorbraak'); addEcon(2, 'Klimaatdoorbraak'); log('Rode uitbraken schuiven de atmosfeerstrip voortaan niet meer op'); }
     if (col === 'zwart') addEcon(2, 'Schone transitie');
     if (col === 'geel') addOnrust(-2, 'Voedsel & land');
     if (col === 'groen') log('Natuurherstelzones verwijderen voortaan 2 groene blokjes per rondestart');
@@ -610,14 +599,12 @@ const ACTIONS = {
   },
   async campaign() {
     const free = S.buildings[cur().city] === 'knooppunt';
-    if (!free) addEcon(-1, 'campagne');
+    if (!free) addEcon(-COST.campaign, 'campagne');
     spend(1); addOnrust(-1, 'campagne' + (free ? ' (gratis bij Knooppunt)' : '')); return true;
   },
   async invest() {
-    const p = cur();
-    if (!await UI.confirm(`Investeren: betaal 4 economie. Direct onrust −2 en 3 investeringsmunten op de rolkaart van ${p.name}. Elke rondestart: economie +1, opwarming −1.`)) return false;
-    addEcon(-4, 'investeren'); addOnrust(-2, 'investeren');
-    S.coins -= 3; S.investments.push({ owner: S.cur, left: 3 });
+    if (!await UI.confirm(`Investeren: betaal ${COST.invest} economie. Onrust −2 en de atmosfeermarker 1 vakje terug.`)) return false;
+    addEcon(-COST.invest, 'investeren'); addOnrust(-2, 'investeren'); moveAtmos(-1, 'investeren');
     spend(1); return true;
   },
   async peek() {
@@ -663,7 +650,7 @@ async function playActionEffect(p, id, fromSlot, free) {
     }
     case 'comms': {
       const ch = await choose([{ label: 'Beweeg het sociale spoor 1 stap richting Sociale Acceptatie', value: 1, note: 'onrust −1' },
-        { label: 'Verwijder 2 protesttokens', value: 2, disabled: true, note: 'Er zijn geen protesttokens in deze editie.' }]);
+        { label: 'Verwijder 2 protesttokens', value: 2, disabled: true, note: 'Vervalt: protesttokens bestaan niet in deze editie.' }]);
       if (ch === 1) { addOnrust(-1, c.title); ok = true; }
       break;
     }
@@ -707,8 +694,8 @@ async function playActionEffect(p, id, fromSlot, free) {
 
 // ── spelleider: handmatig corrigeren tijdens playtest ─────────
 function gmAdjust(key, d) {
-  const max = { cascade: LIMITS.cascade, onrust: LIMITS.onrust, econ: LIMITS.econ, warming: LIMITS.warming, escDrawn: 6, actionsLeft: 8 }[key];
-  S[key] = Math.max(0, Math.min(max, S[key] + d));
+  const [min, max] = { atmos: [1, ATMOS.start], onrust: [0, LIMITS.onrust], econ: [0, LIMITS.econ], escDrawn: [0, 6], actionsLeft: [0, 8] }[key];
+  S[key] = Math.max(min, Math.min(max, S[key] + d));
   log(`Spelleider: ${key} → ${S[key]}`, 'gm'); UI.render(); save();
 }
 function gmCube(id, color, d) {
@@ -723,7 +710,7 @@ function save() {
   try { localStorage.setItem('pup-digitaal-save', JSON.stringify(S)); } catch (e) { /* privévenster */ }
 }
 function loadSaved() {
-  try { const t = localStorage.getItem('pup-digitaal-save'); return t ? JSON.parse(t) : null; } catch (e) { return null; }
+  try { const t = localStorage.getItem('pup-digitaal-save'); const s = t ? JSON.parse(t) : null; return s && s.v === 2 ? s : null; } catch (e) { return null; }
 }
 function resume(state) {
   S = state; S.busy = false;

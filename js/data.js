@@ -1,5 +1,5 @@
 // Vaste spelgegevens die niet uit de ontwerpbestanden gegenereerd worden.
-// Teksten komen letterlijk van de gedrukte kaarten en uit de Handleiding fysieke editie v2.
+// Teksten komen letterlijk van de gedrukte kaarten en uit PUP_spelregels.pdf (22-09-2026).
 
 const COLORS = ['rood', 'groen', 'zwart', 'geel'];
 const COLOR_INFO = {
@@ -17,7 +17,7 @@ const BUILDINGS = {
   natuur:    { name: 'Natuurherstelzone', icon: 'trees', cure: ['groen'],
                effect: 'Bij de rondestart: verwijder 1 groen blokje hier of in een verbonden stad.' },
   adaptatie: { name: 'Adaptatiecentrum', icon: 'shield', cure: ['geel'],
-               effect: 'Vangt de eerste uitbraak in deze stad per Escalation op: geen Cascade, geen verspreiding.' },
+               effect: 'Vangt de eerste uitbraak in deze stad per Escalation op: geen atmosfeerstrip, geen verspreiding.' },
   knooppunt: { name: 'Economisch & Sociaal Knooppunt', icon: 'landmark', cure: ['geel'],
                effect: 'Economie +2 bij de rondestart (één keer, ongeacht het aantal). Campagne is hier gratis.' },
 };
@@ -43,7 +43,7 @@ const TEMPO = [2, 2, 2, 3, 3, 3, 4];
 
 const ROLES = {
   wetenschapper: { name: 'Klimaatwetenschapper', color: '#2E8C7A', icon: 'flask-conical', img: 'assets/role/R01_wetenschapper.webp',
-                   short: 'Doorbraken kosten je één kaart minder.' },
+                   short: 'Doorbraken kosten je 4 kaarten in plaats van 5.' },
   coordinator:   { name: 'Coördinator', color: '#3A6FB0', icon: 'network', img: 'assets/role/R02_coordinator.webp',
                    short: 'Je verplaatst andermans pion.' },
   saneerder:     { name: 'Saneerder', color: '#B23A2E', icon: 'spray-can', img: 'assets/role/R03_saneerder.webp',
@@ -67,7 +67,7 @@ const OVERLOADS = [
   { id: 'o08', key: 'vertrouwensbreuk', title: 'Vertrouwensbreuk', img: 'assets/overload/O08_vertrouwensbreuk.webp',
     short: 'Direct onrust +1. Elke uitbraak in deze zone: onrust +1 extra.' },
   { id: 'o09', key: 'stilleramp', title: 'Stille ramp', img: 'assets/overload/O09_stille-ramp.webp',
-    short: 'Einde van elke ronde: 1 blokje in de stad van deze zone met de minste blokjes.' },
+    short: 'Bij elke rondestart 1 blokje in de stad van deze zone met de minste blokjes.' },
   { id: 'o10', key: 'ontruiming', title: 'Regionale ontruiming', img: 'assets/overload/O10_regionale-ontruiming.webp',
     short: 'Direct: alle pionnen de zone uit. Reizen naar deze zone kost 2 acties.' },
 ];
@@ -77,17 +77,14 @@ const BACKS = {
   overload: 'assets/back/rug_overbelasting.webp', rol: 'assets/back/rug_rol.webp',
 };
 
-const LIMITS = { cascade: 10, onrust: 12, econ: 15, warming: 10, supply: 36, hand: 7 };
-const START = { cascade: 0, onrust: 4, econ: 8, warming: 0 };
+// h8 atmosfeerstrip: telt af van 20 naar 1; voorbij 1 is verloren
+const ATMOS = { start: 20, outbreak: 2, escalation: 1, redZone: 8, upkeep: [17, 13, 9, 5], upkeepCost: 2 };
+// upkeep-streep t ligt tussen vakje t en t-1
+const LIMITS = { onrust: 12, econ: 15, supply: 24, hand: 7 };
+const START = { onrust: 4, econ: 8 };
+const COST = { build: 2, campaign: 1, invest: 4 };
+const CURE_CARDS = 5, CURE_CARDS_SCIENTIST = 4;
 const HAND_START = { 2: 4, 3: 3, 4: 2 };
-
-// Speelwijze-keuzes waar de printset en de handleiding botsen of iets openlaten.
-// Standaard = wat er letterlijk gedrukt staat; aan te passen in het startscherm.
-const RULE_DEFAULTS = {
-  escCascade: true,    // Escalation-kaart zegt "Verhoog de Cascade Track met 1" (stap 4, kaarteffect)
-  scientistCards: 3,   // rolkaart: "één kaart minder"; de kaarttekst zegt 4 i.p.v. 5, maar de basis is al 4
-  overloadInSetup: true, // overbelasting kan al tijdens de opbouw aangaan ("zodra")
-};
 
 const PLAYER_NAMES = ['Speler 1', 'Speler 2', 'Speler 3', 'Speler 4'];
 

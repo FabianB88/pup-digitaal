@@ -24,6 +24,7 @@ const UI = {
   renderStatus() {
     const p = cur();
     $('#status').innerHTML = `<span>Ronde <b>${S.round}</b></span><span>Beurt: <b style="color:${ROLES[p.role].color}">${esc(p.name)}</b></span>
+      <span>Atmosfeer <b style="color:${inRedZone() ? 'var(--bad)' : 'inherit'}">${S.atmos}</b></span>
       <span>Tempo <b>${TEMPO[S.escDrawn]}</b> per beurt</span><span>Escalations <b>${S.escDrawn}/${S.escTotal}</b></span>
       <span>Doorbraken <b>${COLORS.filter(c => S.cured[c]).length}/4</b></span>`;
   },
@@ -65,61 +66,56 @@ const UI = {
     $('#overlay').innerHTML = h;
   },
 
-  cells(n, max, val, colorAt, start = 0) {
-    let h = '';
-    for (let i = start; i <= max; i++) h += `<i class="${i === val ? 'mark on' : ''}" style="${i === val ? `background:${colorAt(i)}` : `background:${colorAt(i)}33`}">${i}</i>`;
-    return `<div class="cells">${h}</div>`;
+  cells(vals, val, colorAt, cls = () => '') {
+    return `<div class="cells">${vals.map(i => `<i class="${i === val ? 'mark on' : ''} ${cls(i)}" style="background:${colorAt(i)}${i === val ? '' : '44'}">${i}</i>`).join('')}</div>`;
   },
   gmBtns(key) { return `<span class="gmbtn"><button data-gm="${key}" data-d="-1">−</button><button data-gm="${key}" data-d="1">+</button></span>`; },
 
+  // h3: de drie sporen onderaan het bord, in dezelfde kleuren
   renderBand() {
+    const range = (a, b) => Array.from({ length: Math.abs(b - a) + 1 }, (_, k) => a < b ? a + k : a - k);
+    const atmosCol = i => i <= ATMOS.redZone ? '#A8321E' : '#2A4A63';
     const onrustCol = i => i <= 4 ? '#3E7F3A' : i <= 8 ? '#8A7A1E' : '#B02E18';
-    const cascCol = i => i < 5 ? '#6E4B20' : i < 8 ? '#A0521E' : '#B02E18';
-    const econCol = i => i <= 3 ? '#8A3A22' : '#2F6E8A';
-    const warmCol = i => i < 3 ? '#6E6A2A' : i < 6 ? '#A0621E' : '#B02E18';
-    const tr = (lbl, key, max, col) => `<div class="track"><span class="lbl">${lbl} ${UI.gmBtns(key)}</span>${UI.cells(0, max, S[key], col)}<span class="val">${S[key]}</span></div>`;
-    const strip = c => {
-      const out = LIMITS.supply - S.supply[c];
-      let cells = '';
-      for (let i = 1; i <= LIMITS.supply; i++) {
-        const empty = i <= out;
-        cells += `<i class="${empty ? 'empty' : 'on'} ${i === 8 ? 't8' : ''} ${i === 12 ? 't12' : ''}" style="${empty ? '' : `background:${COLOR_INFO[c].hex}`}">${i === 8 || i === 12 ? i : ''}</i>`;
-      }
-      return `<div class="strip"><span class="lbl" style="font:600 12px var(--head);color:${c === 'zwart' ? '#c2c9d0' : COLOR_INFO[c].hex}">${COLOR_INFO[c].label.toUpperCase()}</span><div class="cells">${cells}</div><span class="val" style="font:500 14px var(--head);text-align:right">${S.supply[c]}</span></div>`;
-    };
-    const deck = (lbl, img, n, w, top) => `<div class="deck"><div class="pile">${n || top
+    const econCol = i => i <= 3 ? '#A8321E' : i <= 7 ? '#8A7A1E' : '#3E7F3A';
+    const upk = i => ATMOS.upkeep.includes(i + 1) ? 'upk' : '';
+    const tr = (lbl, key, vals, col, cls) => `<div class="track"><span class="lbl">${lbl} ${UI.gmBtns(key)}</span>${UI.cells(vals, S[key], col, cls)}<span class="val">${S[key]}</span></div>`;
+    const deck = (lbl, img, n, w, top, land) => `<div class="deck"><div class="pile">${n || top
       ? `<img src="${top || img}" style="width:${w}px" ${top ? `data-zoom="${top}"` : ''} alt="">${n ? `<span class="n">${n}</span>` : ''}`
-      : `<div class="empty" style="width:${w}px;aspect-ratio:${w > 90 ? '120/70' : '63/88'}">leeg</div>`}</div>${lbl}</div>`;
+      : `<div class="empty" style="width:${w}px;aspect-ratio:${land ? '99/68' : '68/99'}">leeg</div>`}</div>${lbl}</div>`;
     const lastP = S.pressureDiscard[S.pressureDiscard.length - 1];
     const lastD = S.playerDiscard[S.playerDiscard.length - 1];
     const lastO = S.overDiscard[S.overDiscard.length - 1];
     $('#band').innerHTML = `
-      <div class="blk"><div class="h">SPOREN</div>
-        ${tr('CASCADE', 'cascade', LIMITS.cascade, cascCol)}
-        ${tr('ONRUST', 'onrust', LIMITS.onrust, onrustCol)}
-        ${tr('ECONOMIE', 'econ', LIMITS.econ, econCol)}
-        ${tr('OPWARMING', 'warming', LIMITS.warming, warmCol)}
-        <div class="legend">Verlies bij Cascade ${LIMITS.cascade} of onrust ${LIMITS.onrust}. Opwarming: de eerste rode Pressure-kaart per fase legt +1 per 3 punten.</div>
-        <div class="h" style="margin-top:10px">TEMPOBALK ${UI.gmBtns('escDrawn')}</div>
-        <div class="tempo">${TEMPO.map((t, i) => `<span class="${i === S.escDrawn ? 'on' : ''}">${i}<b>${t}</b></span>`).join('')}</div>
-        <div class="legend">boven: Escalations getrokken · groot: Pressure-kaarten per beurt</div>
+      <div class="blk wide"><div class="h">SPOREN</div>
+        ${tr('ATMOSFEER', 'atmos', range(20, 1), atmosCol, upk)}
+        <div class="legend">Uitbraak −2 · Escalation −1 · gouden streep passeren: economie −2 · rode zone (8 en lager): eerste rode Pressure-kaart per fase +1 blokje · voorbij 1: verloren.</div>
+        ${tr('ONRUST', 'onrust', range(0, LIMITS.onrust), onrustCol)}
+        <div class="legend">Links sociale acceptatie, rechts onrust · verlies bij ${LIMITS.onrust}.</div>
+        ${tr('ECONOMIE', 'econ', range(0, LIMITS.econ), econCol)}
+        <div class="legend">Bouwen ${COST.build} · campagne ${COST.campaign} · investeren ${COST.invest} · 3 of lager bij de rondestart: onrust +1.</div>
       </div>
-      <div class="blk"><div class="h">VOORRAADSTRIPS <span style="letter-spacing:0;color:var(--muted);font-weight:400">blokjes op de strip</span></div>
-        ${COLORS.map(strip).join('')}
-        <div class="legend">Pakken van links, terugleggen rechts. Rondestart: vakje 8 leeg op rood of zwart = opwarming +1; vakje 12 leeg = economie −1 per strip (max −2).</div>
-        <div class="h" style="margin-top:10px">DOORBRAKEN</div>
+      <div class="blk"><div class="h">ESCALATION-RIJ ${UI.gmBtns('escDrawn')}</div>
+        <div class="escrow">${Array.from({ length: S.escTotal }, (_, i) => S.escRow[i]
+          ? `<img src="${CARD[S.escRow[i]].img}" data-zoom="${CARD[S.escRow[i]].img}" alt="${esc(CARD[S.escRow[i]].title)}">`
+          : `<span class="slot">${i + 1}</span>`).join('')}</div>
+        <div class="tempo">${[[0, 2, '0-2'], [3, 5, '3-5'], [6, 6, '6']].map(([a, b, l]) => `<span class="${S.escDrawn >= a && S.escDrawn <= b ? 'on' : ''}">${l}<b>${TEMPO[a]}</b></span>`).join('')}</div>
+        <div class="legend">Afgehandelde Escalations → Pressure-kaarten per beurt.</div>
+        <div class="h" style="margin-top:12px">BLOKJES NAAST HET BORD</div>
+        <div class="supply">${COLORS.map(c => `<div class="sup ${S.supply[c] <= 4 ? 'low' : ''}"><span class="cube ${c}"></span><b>${S.supply[c]}</b><small>/${LIMITS.supply}</small></div>`).join('')}</div>
+        <div class="legend">Is een kleur op en moet er toch een blokje bij: verloren.${S.boxed ? ` ${S.boxed} blokje${S.boxed > 1 ? 's' : ''} voorgoed in de doos.` : ''}</div>
+        <div class="h" style="margin-top:12px">DOORBRAKEN</div>
         <div class="cures">${COLORS.map(c => `<div class="cure ${S.cured[c] ? 'done' : ''}" style="${S.cured[c] ? `background:${COLOR_INFO[c].hex}` : ''}">${icon(S.cured[c] ? 'badge-check' : 'circle-dashed')} ${COLOR_INFO[c].cure}</div>`).join('')}</div>
       </div>
       <div class="blk"><div class="h">KAARTEN</div>
         <div class="decks">
           ${deck('SPELERSDEK', BACKS.speler, S.playerDeck.length, 62)}
           ${deck('AFLEG', null, S.playerDiscard.length, 62, lastD && CARD[lastD].img)}
-          ${deck('PRESSURE', BACKS.pressure, S.pressureDeck.length, 110)}
-          ${deck('AFLEG', null, S.pressureDiscard.length, 110, lastP && CARD[lastP].img)}
+          ${deck('PRESSURE', BACKS.pressure, S.pressureDeck.length, 110, null, true)}
+          ${deck('AFLEG', null, S.pressureDiscard.length, 110, lastP && CARD[lastP].img, true)}
           ${deck('OVERBELASTING', BACKS.overload, S.overDeck.length, 62)}
           ${deck('AFLEG', null, S.overDiscard.length, 62, lastO && CARD[lastO].img)}
         </div>
-        <div class="legend">Gebouwen ${Object.keys(S.buildings).length}/${MAX_BUILDINGS} · investeringsmunten in voorraad ${S.coins}/12 · uitbraken dit spel ${S.outbreaks || 0}
+        <div class="legend">Gebouwen ${Object.keys(S.buildings).length}/${MAX_BUILDINGS} · uitbraken dit spel ${S.outbreaks || 0}
         ${S.actionUsed.length ? `<br>Gebruikte actiekaarten: ${S.actionUsed.map(id => `<a href="#" data-zoom="${CARD[id].img}" style="color:var(--gold)">${esc(CARD[id].title)}</a>`).join(', ')}` : ''}</div>
       </div>`;
   },
@@ -148,7 +144,7 @@ const UI = {
         ${b('charter', 'send', 'Vrij reizen')}${b('shuttle', 'arrow-left-right', 'Pendelen')}
         ${b('treat', 'eraser', 'Behandelen')}${b('build', 'hammer', 'Bouwen')}
         ${b('share', 'users', 'Kennis delen')}${b('cure', 'badge-check', 'Doorbraak')}
-        ${b('campaign', 'megaphone', here === 'knooppunt' ? 'Campagne (gratis)' : 'Campagne (1 econ)')}${b('invest', 'coins', 'Investeren (4)')}
+        ${b('campaign', 'megaphone', here === 'knooppunt' ? 'Campagne (gratis)' : `Campagne (${COST.campaign} econ)`)}${b('invest', 'coins', `Investeren (${COST.invest})`)}
         ${b('playCard', 'layers', 'Actiekaart spelen')}${roleBtns}
         ${b('peek', 'eye', 'Bekijk Pressure (gratis)', 'free')}
       </div>
@@ -160,14 +156,12 @@ const UI = {
   renderPlayers() {
     $('#players').innerHTML = `<div class="sec">SPELERS · handen zijn open</div>` + S.players.map((p, i) => {
       const r = ROLES[p.role];
-      const inv = S.investments.filter(x => x.owner === i).reduce((n, x) => n + x.left, 0);
       return `<div class="pl ${i === S.cur ? 'active' : ''}">
         <div class="top"><span class="dot" style="background:${r.color}">${icon(r.icon)}</span><b>${esc(p.name)}</b>
           <a href="#" data-zoom="${r.img}" style="color:var(--muted);font-size:12px">${r.name}</a>
           <small>${esc(cname(p.city))} · ${p.hand.length}/${LIMITS.hand}</small></div>
         <div class="hand">${p.hand.map(id => `<img src="${CARD[id].img}" data-zoom="${CARD[id].img}" alt="${esc(cardName(id))}" title="${esc(cardName(id))}">`).join('') || '<small style="color:var(--muted)">geen kaarten</small>'}</div>
         ${p.slot ? `<div class="slot">Op de rolkaart: <img src="${CARD[p.slot].img}" data-zoom="${CARD[p.slot].img}" alt="${esc(CARD[p.slot].title)}"> ${esc(CARD[p.slot].title)}</div>` : ''}
-        ${inv ? `<div class="coins">${icon('coins')} ${inv} investeringsmunt${inv > 1 ? 'en' : ''} op de rolkaart</div>` : ''}
       </div>`;
     }).join('');
   },
@@ -271,7 +265,7 @@ const UI = {
     const r = S.result;
     UI.modal(`<h2 style="color:${r.win ? 'var(--good)' : 'var(--bad)'}">${r.win ? 'Gewonnen!' : 'Verloren'}</h2>
       <p>${esc(r.reason)}</p>
-      <p style="color:var(--muted)">Ronde ${S.round} · ${S.outbreaks || 0} uitbraken · Cascade ${S.cascade} · onrust ${S.onrust} · economie ${S.econ} · opwarming ${S.warming} · doorbraken ${COLORS.filter(c => S.cured[c]).length}/4 · spelersdek nog ${S.playerDeck.length}</p>
+      <p style="color:var(--muted)">Ronde ${S.round} · ${S.outbreaks || 0} uitbraken · atmosfeerstrip ${S.atmos} · onrust ${S.onrust} · economie ${S.econ} · Escalations ${S.escDrawn} · doorbraken ${COLORS.filter(c => S.cured[c]).length}/4 · spelersdek nog ${S.playerDeck.length}</p>
       <div class="opts"><button id="goClose" style="justify-content:center">Bord bekijken</button><button id="goNew" style="justify-content:center;background:var(--gold);color:#111">Nieuw spel</button></div>`);
     $('#goClose').onclick = UI.close;
     $('#goNew').onclick = () => { UI.close(); UI.setup(); };
@@ -280,7 +274,7 @@ const UI = {
   // GM: blokjes in een stad aanpassen
   gmCity(id) {
     const draw = () => {
-      const m = UI.modal(`<h2>Spelleider: ${esc(cname(id))}</h2><p>Corrigeer blokjes handmatig (gaat van/naar de voorraadstrip, geen uitbraken).</p>
+      const m = UI.modal(`<h2>Spelleider: ${esc(cname(id))}</h2><p>Corrigeer blokjes handmatig (van/naar de voorraad naast het bord, geen uitbraken).</p>
         <div class="opts">${COLORS.map(c => `<div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:18px;height:18px;border-radius:3px;background:${COLOR_INFO[c].hex};border:1px solid #fff"></span>
           <span style="flex:1">${COLOR_INFO[c].label}: <b>${S.cubes[id][c]}</b></span>
           <button data-c="${c}" data-d="-1" style="width:40px;justify-content:center">−</button><button data-c="${c}" data-d="1" style="width:40px;justify-content:center">+</button></div>`).join('')}
@@ -302,19 +296,20 @@ const UI = {
 
   rules() {
     UI.modal(`<div class="rules"><h2>Spiekbrief</h2>
-      <p style="color:var(--muted)">Samengevat uit de Handleiding fysieke editie v2, hoofdstuk 13.</p>
-      <h3>BEURT</h3><ul><li>4 acties · 2 kaarten trekken (Escalation direct afhandelen, geen vervanger) · Pressure-fase (tempobalk).</li><li>Handlimiet 7.</li></ul>
-      <h3>RONDESTART (startspeler weer aan de beurt)</h3><ul><li>Knooppunt: economie +2 (één keer).</li><li>Natuurherstelzones: 1 groen weg (2 na Ecologisch herstel).</li><li>Investeringsmunten: per munt economie +1, opwarming −1.</li><li>Vakje 8 leeg op rood of zwart: opwarming +1. Vakje 12 leeg: economie −1 per strip, max −2.</li><li>Economie 3 of lager: onrust +1.</li></ul>
-      <h3>PRESSURE-KAART</h3><ul><li>Compound eerst (vervalt na de doorbraak van de kaartkleur), dan 1 blokje.</li><li>+1 in een zone met Overbelaste regio. Eerste rode kaart per fase: +1 per 3 opwarming.</li><li>4e blokje van één kleur = uitbraak: Cascade +1, elke buur 1 blokje, ketting, elke stad max. één keer.</li></ul>
+      <p style="color:var(--muted)">Samengevat uit PUP_spelregels.pdf. Bij twijfel wint het gedrukte materiaal.</p>
+      <h3>BEURT</h3><ul><li>4 acties · 2 kaarten trekken (Escalation direct afhandelen, uit het spel, geen vervanger) · Pressure-fase.</li><li>Tempo volgens de Escalation-rij: 0-2 = 2 kaarten, 3-5 = 3, 6 = 4. Handlimiet 7.</li></ul>
+      <h3>RONDESTART (startspeler weer aan de beurt)</h3><ul><li>Minstens één Knooppunt: economie +2 (één keer).</li><li>Natuurherstelzones: 1 groen weg hier of in een verbonden stad (2 na Ecologisch herstel).</li><li>Stille ramp uitvoeren.</li><li>Economie 3 of lager: onrust +1.</li><li>Per zone: overbelasting aan of uit.</li></ul>
+      <h3>ACTIES</h3><ul><li>Rijden · direct reizen · vrij reizen · pendelen · behandelen · kennis delen.</li><li>Bouwen: City Card van je stad + ${COST.build} economie, max. 1 per stad en 6 op het bord.</li><li>Campagne: ${COST.campaign} economie (gratis bij een Knooppunt), onrust −1.</li><li>Investeren: in een stad met gebouw, ${COST.invest} economie, onrust −2 en atmosfeermarker 1 vakje terug.</li><li>Doorbraak: ${CURE_CARDS} City Cards van één kleur (Klimaatwetenschapper ${CURE_CARDS_SCIENTIST}) bij het juiste gebouw.</li></ul>
+      <h3>PRESSURE-KAART</h3><ul><li>Compound eerst (vervalt na de doorbraak van de kaartkleur), dan 1 blokje.</li><li>+1 in een zone met Overbelaste regio. Eerste rode kaart per fase in de rode zone (8 of lager): +1.</li><li>4e blokje van één kleur = uitbraak: atmosfeerstrip −2, elke buur 1 blokje, ketting, elke stad max. één keer.</li></ul>
+      <h3>ATMOSFEERSTRIP</h3><ul><li>Van 20 naar 1. Uitbraak −2, Escalation −1. Alleen Klimaatdoorbraak (+3), Investeren en Emergency Coalition (+1) halen hem terug.</li><li>Gouden streep (17|16, 13|12, 9|8, 5|4) passeren: economie −2, per streep.</li></ul>
       <h3>OVERBELASTING</h3><ul><li>Aan zodra 3 steden in een zone elk 2+ blokjes hebben (kleur maakt niet uit). Uit bij nog 1 of 0.</li></ul>
-      <h3>ESCALATION</h3><ul><li>Reactiekaarten eerst. 1 Tempo (+1 onrust vanaf de tweede) · 2 Uitbarsting: onderste Pressure-kaart, 2 blokjes · 3 Terugkeer: aflegstapel schudden, bovenop · 4 Kaarteffect.</li></ul>
-      <h3>DOORBRAAK</h3><ul><li>4 City Cards van één kleur in een stad met het juiste gebouw: rood = Onderzoekscentrum, zwart = Energietransitielocatie, groen = Natuurherstelzone, geel = Adaptatiecentrum of Knooppunt.</li></ul>
-      <h3>VERLIES</h3><ul><li>Cascade 10 · onrust 12 · blokje nodig uit een lege strip · trekken uit een leeg spelersdek.</li></ul>
-      <h3>SPEELWIJZE IN DIT SPEL</h3><ul>
-        <li>Escalation-kaarteffect Cascade +1: <b>${S && S.rules.escCascade ? 'aan' : 'uit'}</b>. Klimaatwetenschapper: <b>${S ? S.rules.scientistCards : RULE_DEFAULTS.scientistCards}</b> kaarten.</li>
-        <li>"Verbonden kuststad": steden aan zee volgens de kaart (niet: São Paulo, Manaus, Dhaka, Caïro, Kinshasa).</li>
-        <li>Stille ramp noemt geen kleur: het team kiest een van de twee kleuren van de stad.</li>
-        <li>Emergency Coalition "Negeer de Legacy-stap" = sla de uitbarsting over.</li></ul>
+      <h3>ESCALATION</h3><ul><li>Reactiekaarten eerst. 1 Atmosfeerstrip −1 · 2 Uitbarsting: onderste Pressure-kaart, 2 blokjes, compound negeren · 3 Pressure-aflegstapel schudden, bovenop · kaart op de rij.</li></ul>
+      <h3>DOORBRAKEN</h3><ul><li>Rood = Onderzoekscentrum: atmosfeer +3, economie +2, rode uitbraken tellen niet meer.</li><li>Zwart = Energietransitielocatie: economie +2.</li><li>Groen = Natuurherstelzone: natuurherstelzones ruimen 2 groen op.</li><li>Geel = Adaptatiecentrum of Knooppunt: onrust −2.</li></ul>
+      <h3>VERLIES</h3><ul><li>Atmosfeermarker voorbij 1 · onrust op 12 · een kleur blokjes op · trekken uit een leeg spelersdek.</li></ul>
+      <h3>KAARTTEKSTEN DIE ANDERS GELEZEN WORDEN</h3><ul>
+        <li>"Cascade Track" = de atmosfeerstrip. "Legacy-kaart" = de uitbarsting.</li>
+        <li>Public Communication Surge: de optie met protesttokens vervalt.</li>
+        <li>"Verbonden kuststad": steden aan zee volgens de kaart (niet: São Paulo, Manaus, Mexico-Stad, Warschau, Caïro, Riyad, Addis Abeba, Kinshasa, Nairobi, Johannesburg, Delhi, Dhaka).</li></ul>
       <div class="opts" style="margin-top:14px"><button id="rX" style="justify-content:center">Sluiten</button></div></div>`);
     $('#rX').onclick = UI.close;
   },
@@ -322,13 +317,13 @@ const UI = {
   // ── startscherm ────────────────────────────────────────────
   setup() {
     const saved = loadSaved();
-    const st = UI._cfg || { n: 2, names: [...PLAYER_NAMES], roles: ['wetenschapper', 'saneerder', 'coordinator', 'ingenieur'], esc: 4, start: 'random', rules: { ...RULE_DEFAULTS } };
+    const st = UI._cfg || { n: 2, names: [...PLAYER_NAMES], roles: ['wetenschapper', 'saneerder', 'coordinator', 'ingenieur'], esc: 4, start: 'random' };
     UI._cfg = st;
     const el = $('#setup');
     const draw = () => {
       el.innerHTML = `<div class="inner">
         <h1>PLANET<span>UNDER PRESSURE</span></h1>
-        <p class="sub">Digitale playtest van de fysieke editie · handleiding v2 · alle kaarten uit de printset</p>
+        <p class="sub">Digitale playtest van de fysieke editie · spelregels van 22 september 2026 · alle kaarten uit de printset</p>
         <div class="grid">
           <div class="blk"><div class="h">SPELERS</div>
             <div class="seg">${[2, 3, 4].map(n => `<button data-n="${n}" class="${st.n === n ? 'on' : ''}">${n} spelers</button>`).join('')}</div>
@@ -345,11 +340,8 @@ const UI = {
             <div class="seg">${[[4, 'Introductie'], [5, 'Standaard'], [6, 'Expert']].map(([n, l]) => `<button data-esc="${n}" class="${st.esc === n ? 'on' : ''}">${n} · ${l}</button>`).join('')}</div>
             <label>Startspeler</label>
             <select id="startSel"><option value="random">Willekeurig (wie het laatst iets duurzaams deed)</option>${Array.from({ length: st.n }, (_, i) => `<option value="${i}" ${String(st.start) === String(i) ? 'selected' : ''}>${esc(st.names[i])}</option>`).join('')}</select>
-            <div class="legend" style="margin-top:12px">Handkaarten: ${HAND_START[st.n]} per speler. Sporen: Cascade 0, onrust 4, economie 8, opwarming 0. Pionnen starten in Amsterdam.</div>
-            <div class="h" style="margin-top:16px">SPEELWIJZE <span style="letter-spacing:0;font-weight:400;color:var(--muted)">waar kaart en handleiding botsen</span></div>
-            <label class="check"><input type="checkbox" id="rEsc" ${st.rules.escCascade ? 'checked' : ''}><span>Escalation-kaarteffect: Cascade +1<small>Staat zo op alle zes de Escalation-kaarten ("Verhoog de Cascade Track met 1"). De handleiding noemt het alleen "kaarteffect". Uit = alleen tempo, uitbarsting en terugkeer.</small></span></label>
-            <label class="check"><input type="checkbox" id="rSci" ${st.rules.scientistCards === 3 ? 'checked' : ''}><span>Klimaatwetenschapper doet een doorbraak met 3 kaarten<small>Rolkaart: "Doorbraken kosten je één kaart minder." De kaarttekst zegt "4 in plaats van 5", maar de handleiding zet de basis al op 4. Uit = 4 kaarten (rol heeft dan geen voordeel).</small></span></label>
-            <label class="check"><input type="checkbox" id="rSet" ${st.rules.overloadInSetup ? 'checked' : ''}><span>Overbelasting kan al bij de opbouw aangaan<small>De handleiding zegt "zodra". Uit = pas controleren vanaf de eerste beurt.</small></span></label>
+            <div class="legend" style="margin-top:12px">Handkaarten: ${HAND_START[st.n]} per speler. Atmosfeerstrip op 20, onrust op 4, economie op 8. ${LIMITS.supply} blokjes per kleur. Pionnen starten in Amsterdam.</div>
+            <div class="legend">Het spelersdek wordt verdeeld in ${st.esc} ongeveer gelijke stapels met in elke stapel één Escalation, kleinste stapel onderop. Speel je eerste potjes met 4.</div>
           </div>
         </div>
         <div class="go">
@@ -364,13 +356,10 @@ const UI = {
       el.querySelectorAll('[data-role]').forEach(img => img.onclick = () => { if (img.classList.contains('taken')) return; st.roles[+img.dataset.p] = img.dataset.role; draw(); });
       $('#rndRoles').onclick = () => { const r = shuffle(Object.keys(ROLES)); for (let i = 0; i < 4; i++) st.roles[i] = r[i]; draw(); };
       $('#startSel').onchange = e => { st.start = e.target.value; };
-      $('#rEsc').onchange = e => { st.rules.escCascade = e.target.checked; };
-      $('#rSci').onchange = e => { st.rules.scientistCards = e.target.checked ? 3 : 4; };
-      $('#rSet').onchange = e => { st.rules.overloadInSetup = e.target.checked; };
       $('#goStart').onclick = () => {
         el.hidden = true;
         const start = st.start === 'random' ? Math.floor(Math.random() * st.n) : +st.start;
-        newGame({ players: Array.from({ length: st.n }, (_, i) => ({ name: st.names[i].trim() || PLAYER_NAMES[i], role: st.roles[i] })), escalations: st.esc, start, rules: { ...st.rules } });
+        newGame({ players: Array.from({ length: st.n }, (_, i) => ({ name: st.names[i].trim() || PLAYER_NAMES[i], role: st.roles[i] })), escalations: st.esc, start });
       };
       if ($('#goResume')) $('#goResume').onclick = () => { el.hidden = true; resume(saved); };
       if ($('#goBack')) $('#goBack').onclick = () => { el.hidden = true; };
@@ -419,6 +408,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#zoom').h
 
 // ?demo start direct een voorbeeldspel (handig om snel te kijken)
 if (location.search.includes('demo')) {
-  newGame({ players: [{ name: 'Fabian', role: 'saneerder' }, { name: 'Sam', role: 'ingenieur' }, { name: 'Noor', role: 'preventie' }], escalations: 5, start: 0, rules: { ...RULE_DEFAULTS } });
+  newGame({ players: [{ name: 'Fabian', role: 'saneerder' }, { name: 'Sam', role: 'ingenieur' }, { name: 'Noor', role: 'preventie' }], escalations: 5, start: 0 });
 } else UI.setup();
 icons();
