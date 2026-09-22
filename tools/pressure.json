@@ -1,0 +1,465 @@
+{
+ "types": {
+  "klimaat": {
+   "band": "KLIMAATIMPACT",
+   "color": "#B02E18",
+   "blok": "rood",
+   "icon": "thermo",
+   "foot": "#C4442C",
+   "spine": "#B02E18"
+  },
+  "eco": {
+   "band": "ECOLOGISCHE DRUK",
+   "color": "#416B27",
+   "blok": "groen",
+   "icon": "leaf",
+   "foot": "#5C9440",
+   "spine": "#416B27"
+  },
+  "transitie": {
+   "band": "VERVUILING",
+   "color": "#23262A",
+   "blok": "zwart",
+   "icon": "factory",
+   "foot": "#C2C9D0",
+   "spine": "#4A5158"
+  },
+  "voedsel": {
+   "band": "VOEDSEL & LAND",
+   "color": "#B4790C",
+   "blok": "geel",
+   "icon": "wheat",
+   "foot": "#D69A22",
+   "spine": "#B4790C"
+  }
+ },
+ "cards": [
+  {
+   "n": 1,
+   "city": "ANCHORAGE",
+   "ev": "Permafrostdooi",
+   "cat": "klimaat",
+   "art": "g1_00",
+   "cp": "Als Anchorage al 1+ rood heeft, plaats dan ook 1 groen blokje in Anchorage.",
+   "cpi": "eco"
+  },
+  {
+   "n": 2,
+   "city": "ANCHORAGE",
+   "ev": "Arctisch ecosysteemverlies",
+   "cat": "eco",
+   "art": "g1_01",
+   "cp": "Als Anchorage al 1+ groen heeft, plaats dan ook 1 rood blokje in Anchorage.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 3,
+   "city": "VANCOUVER",
+   "ev": "Bosbranden",
+   "cat": "klimaat",
+   "art": "g1_02",
+   "icon": "flame",
+   "cp": "Als Vancouver al 1+ rood heeft, plaats dan ook 1 zwart blokje in Vancouver.",
+   "cpi": "transitie"
+  },
+  {
+   "n": 4,
+   "city": "VANCOUVER",
+   "ev": "Bossterfte",
+   "cat": "eco",
+   "art": "g1_03"
+  },
+  {
+   "n": 5,
+   "city": "NEW YORK",
+   "ev": "Superstorm",
+   "cat": "klimaat",
+   "art": "g1_04",
+   "icon": "storm",
+   "cp": "Plaats ook 1 rood blokje in één verbonden kuststad.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 6,
+   "city": "NEW YORK",
+   "ev": "Luchtkwaliteitscrisis",
+   "cat": "transitie",
+   "art": "g1_05",
+   "cp": "Als New York al 1+ zwart heeft, verhoog dan het onrustspoor met 1.",
+   "cpi": "onrust"
+  },
+  {
+   "n": 7,
+   "city": "HOUSTON",
+   "ev": "Extreme hitte",
+   "cat": "klimaat",
+   "art": "g1_06"
+  },
+  {
+   "n": 8,
+   "city": "HOUSTON",
+   "ev": "Methaanlekken",
+   "cat": "transitie",
+   "art": "g1_07",
+   "cp": "Als Houston al 1+ zwart heeft, plaats dan ook 1 rood blokje in Houston.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 9,
+   "city": "MEXICO-STAD",
+   "ev": "Luchtvervuiling",
+   "cat": "transitie",
+   "art": "g1_08"
+  },
+  {
+   "n": 10,
+   "city": "MEXICO-STAD",
+   "ev": "Watertekort en rantsoenering",
+   "cat": "voedsel",
+   "art": "g1_09",
+   "cp": "Als Mexico-Stad al 1+ geel heeft, verlaag de bevoorrading met 1.",
+   "cpi": "voedsel"
+  },
+  {
+   "n": 11,
+   "city": "MANAUS",
+   "ev": "Ontbossingsdruk",
+   "cat": "eco",
+   "art": "g5_00",
+   "cp": "Als Manaus al 1+ groen heeft, plaats dan ook 1 geel blokje in Manaus.",
+   "cpi": "voedsel"
+  },
+  {
+   "n": 12,
+   "city": "MANAUS",
+   "ev": "Rivier- en visserijdruk",
+   "cat": "voedsel",
+   "art": "g5_01"
+  },
+  {
+   "n": 13,
+   "city": "SÃO PAULO",
+   "ev": "Hittestress",
+   "cat": "klimaat",
+   "art": "g5_02"
+  },
+  {
+   "n": 14,
+   "city": "SÃO PAULO",
+   "ev": "Habitatverlies",
+   "cat": "eco",
+   "art": "g5_03"
+  },
+  {
+   "n": 15,
+   "city": "AMSTERDAM",
+   "ev": "Stormvloedrisico",
+   "cat": "klimaat",
+   "art": "g5_04",
+   "cp": "Plaats ook 1 rood blokje in één verbonden kuststad.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 16,
+   "city": "AMSTERDAM",
+   "ev": "Haven- en uitstootdruk",
+   "cat": "transitie",
+   "art": "g5_05"
+  },
+  {
+   "n": 17,
+   "city": "WARSCHAU",
+   "ev": "Kolenafhankelijkheid",
+   "cat": "transitie",
+   "art": "g5_06"
+  },
+  {
+   "n": 18,
+   "city": "WARSCHAU",
+   "ev": "Energie- en prijsdruk",
+   "cat": "voedsel",
+   "art": "g5_07"
+  },
+  {
+   "n": 19,
+   "city": "ISTANBUL",
+   "ev": "Hittestress",
+   "cat": "klimaat",
+   "art": "g5_08"
+  },
+  {
+   "n": 20,
+   "city": "ISTANBUL",
+   "ev": "Waterdruk",
+   "cat": "voedsel",
+   "art": "g5_09"
+  },
+  {
+   "n": 21,
+   "city": "CASABLANCA",
+   "ev": "Havenvervuiling",
+   "cat": "transitie",
+   "art": "g2_00"
+  },
+  {
+   "n": 22,
+   "city": "CASABLANCA",
+   "ev": "Watertekort",
+   "cat": "voedsel",
+   "art": "g2_01"
+  },
+  {
+   "n": 23,
+   "city": "CAÏRO",
+   "ev": "Woestijnuitbreiding",
+   "cat": "klimaat",
+   "art": "g2_02",
+   "cp": "Als Caïro al 1+ rood heeft, plaats dan ook 1 geel blokje in Caïro.",
+   "cpi": "voedsel"
+  },
+  {
+   "n": 24,
+   "city": "CAÏRO",
+   "ev": "Nijl- en landbouwdruk",
+   "cat": "voedsel",
+   "art": "g2_03"
+  },
+  {
+   "n": 25,
+   "city": "RIYAD",
+   "ev": "Fossiele luchtvervuiling",
+   "cat": "transitie",
+   "art": "g2_04"
+  },
+  {
+   "n": 26,
+   "city": "RIYAD",
+   "ev": "Water- en landbouwdruk",
+   "cat": "voedsel",
+   "art": "g2_05"
+  },
+  {
+   "n": 27,
+   "city": "LAGOS",
+   "ev": "Olie-infrastructuurlek",
+   "cat": "transitie",
+   "art": "g2_06",
+   "cp": "Als Lagos al 1+ zwart heeft, plaats ook 1 zwart blokje in een verbonden kuststad.",
+   "cpi": "transitie"
+  },
+  {
+   "n": 28,
+   "city": "LAGOS",
+   "ev": "Voedselprijsdruk",
+   "cat": "voedsel",
+   "art": "g2_07"
+  },
+  {
+   "n": 29,
+   "city": "ADDIS ABEBA",
+   "ev": "Bodemerosie",
+   "cat": "eco",
+   "art": "g2_08"
+  },
+  {
+   "n": 30,
+   "city": "ADDIS ABEBA",
+   "ev": "Oogstonzekerheid",
+   "cat": "voedsel",
+   "art": "g2_09"
+  },
+  {
+   "n": 31,
+   "city": "KINSHASA",
+   "ev": "Biodiversiteitsverlies",
+   "cat": "eco",
+   "art": "g3_00"
+  },
+  {
+   "n": 32,
+   "city": "KINSHASA",
+   "ev": "Voedselonzekerheid",
+   "cat": "voedsel",
+   "art": "g3_01"
+  },
+  {
+   "n": 33,
+   "city": "JAKARTA",
+   "ev": "Mangroveverlies",
+   "cat": "eco",
+   "art": "g3_02",
+   "cp": "Als Jakarta al 1+ groen heeft, plaats dan ook 1 zwart blokje in Jakarta.",
+   "cpi": "transitie"
+  },
+  {
+   "n": 34,
+   "city": "JAKARTA",
+   "ev": "Plastic- en kustvervuiling",
+   "cat": "transitie",
+   "art": "g3_03"
+  },
+  {
+   "n": 35,
+   "city": "KARACHI",
+   "ev": "Hitte en droogte",
+   "cat": "klimaat",
+   "art": "g3_04"
+  },
+  {
+   "n": 36,
+   "city": "KARACHI",
+   "ev": "Waterschaarste",
+   "cat": "voedsel",
+   "art": "g3_05"
+  },
+  {
+   "n": 37,
+   "city": "NAIROBI",
+   "ev": "Biodiversiteitsverlies",
+   "cat": "eco",
+   "art": "g3_06"
+  },
+  {
+   "n": 38,
+   "city": "NAIROBI",
+   "ev": "Oogstfalen",
+   "cat": "voedsel",
+   "art": "g3_07",
+   "cp": "Als Nairobi al 1+ geel heeft, verlaag de bevoorrading met 1.",
+   "cpi": "voedsel"
+  },
+  {
+   "n": 39,
+   "city": "JOHANNESBURG",
+   "ev": "Bodemdegradatie",
+   "cat": "eco",
+   "art": "g3_08"
+  },
+  {
+   "n": 40,
+   "city": "JOHANNESBURG",
+   "ev": "Mijn- en luchtvervuiling",
+   "cat": "transitie",
+   "art": "g3_09"
+  },
+  {
+   "n": 41,
+   "city": "DELHI",
+   "ev": "Extreme hitte",
+   "cat": "klimaat",
+   "art": "g4_00"
+  },
+  {
+   "n": 42,
+   "city": "DELHI",
+   "ev": "Smogalarm",
+   "cat": "transitie",
+   "art": "g4_01",
+   "cp": "Als Delhi al 1+ zwart heeft, verhoog het onrustspoor met 1.",
+   "cpi": "onrust"
+  },
+  {
+   "n": 43,
+   "city": "DHAKA",
+   "ev": "Overstromingsdruk",
+   "cat": "klimaat",
+   "art": "g4_02"
+  },
+  {
+   "n": 44,
+   "city": "DHAKA",
+   "ev": "Zoutindringing",
+   "cat": "voedsel",
+   "art": "g4_03"
+  },
+  {
+   "n": 45,
+   "city": "BANGKOK",
+   "ev": "Overstromingsdruk",
+   "cat": "klimaat",
+   "art": "g4_04"
+  },
+  {
+   "n": 46,
+   "city": "BANGKOK",
+   "ev": "Voedselketenverstoring",
+   "cat": "voedsel",
+   "art": "g4_05"
+  },
+  {
+   "n": 47,
+   "city": "MANILA",
+   "ev": "Supertyfoon",
+   "cat": "klimaat",
+   "art": "g4_06",
+   "cp": "Plaats ook 1 rood blokje in één verbonden kuststad.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 48,
+   "city": "MANILA",
+   "ev": "Koraal- en kustverlies",
+   "cat": "eco",
+   "art": "g4_07"
+  },
+  {
+   "n": 49,
+   "city": "SINGAPORE",
+   "ev": "Kustecosysteemdruk",
+   "cat": "eco",
+   "art": "g4_08"
+  },
+  {
+   "n": 50,
+   "city": "SINGAPORE",
+   "ev": "Waterimportdruk",
+   "cat": "voedsel",
+   "art": "g4_09"
+  },
+  {
+   "n": 51,
+   "city": "SYDNEY",
+   "ev": "Droogte en hitte",
+   "cat": "klimaat",
+   "art": "g6_00"
+  },
+  {
+   "n": 52,
+   "city": "SYDNEY",
+   "ev": "Koraalsterfte",
+   "cat": "eco",
+   "art": "g6_01"
+  },
+  {
+   "n": 53,
+   "city": "SHANGHAI",
+   "ev": "Industriële vervuiling",
+   "cat": "transitie",
+   "art": "g6_02"
+  },
+  {
+   "n": 54,
+   "city": "SHANGHAI",
+   "ev": "Delta-ecosysteemdruk",
+   "cat": "eco",
+   "art": "g6_03"
+  },
+  {
+   "n": 55,
+   "city": "TOKIO",
+   "ev": "Tyfoondruk",
+   "cat": "klimaat",
+   "art": "g6_04",
+   "icon": "storm",
+   "cp": "Plaats ook 1 rood blokje in één verbonden kuststad.",
+   "cpi": "klimaat"
+  },
+  {
+   "n": 56,
+   "city": "TOKIO",
+   "ev": "Kustecosysteemdruk",
+   "cat": "eco",
+   "art": "g6_05"
+  }
+ ]
+}
