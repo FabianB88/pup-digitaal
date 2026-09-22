@@ -40,19 +40,19 @@ const UI = {
       if (UI.gm && !pick) cls.push('gm');
       if (S.flash && S.flash[id]) cls.push('flash');
       const t = COLORS.filter(c => S.cubes[id][c]).map(c => `${S.cubes[id][c]} ${c}`).join(', ');
-      h += `<button class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-city="${id}" title="${esc(CITIES[id].name)}${t ? ': ' + t : ''}"></button>`;
-      // stapel: pionnen, gebouw, blokjes
+      // paneel aan de stad vast: pionnen en gebouw, daaronder elk blokje los (zoals op tafel)
       const pawns = S.players.map((p, i) => p.city === id ? `<span class="pawn ${i === S.cur ? 'me' : ''}" style="background:${ROLES[p.role].color}" title="${esc(p.name)}"></span>` : '').join('');
       const b = S.buildings[id];
-      const cubes = COLORS.map(c => S.cubes[id][c] ? `<span class="cube ${c} ${S.cubes[id][c] === 3 ? 'three' : ''}">${S.cubes[id][c]}</span>` : '').join('');
+      const cubes = COLORS.filter(c => S.cubes[id][c]).map(c => `<div class="row">${`<span class="cube ${c}"></span>`.repeat(S.cubes[id][c])}</div>`).join('');
+      const full = COLORS.some(c => S.cubes[id][c] >= 3);
+      if (pawns || b || cubes) cls.push('occ');
+      h += `<button class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-city="${id}" title="${esc(CITIES[id].name)}${t ? ': ' + t : ''}"></button>`;
       if (!pawns && !b && !cubes) continue;
-      const [dx, dy] = OPP[LABEL_DIR[id]] || [0, -1];
-      const tx = dx < 0 ? '-100%' : dx > 0 ? '0%' : '-50%';
-      const ty = dy < 0 ? '-100%' : dy > 0 ? '0%' : '-50%';
-      const ox = dx * 13, oy = dy * 13;
-      h += `<div class="stack" style="left:calc(${x}% + ${ox}px);top:calc(${y}% + ${oy}px);transform:translate(${tx},${ty});align-items:${dx < 0 ? 'flex-end' : dx > 0 ? 'flex-start' : 'center'}">
-        ${pawns || b ? `<div class="row">${pawns}${b ? `<span class="bld" title="${esc(BUILDINGS[b].name)}">${icon(BUILDINGS[b].icon)}</span>` : ''}</div>` : ''}
-        ${cubes ? `<div class="row">${cubes}</div>` : ''}</div>`;
+      // blokjes liggen óp de stad, zoals op tafel; pionnen en gebouw als kopje erboven
+      const top = pawns || b ? `<div class="row top">${pawns}${b ? `<span class="bld" title="${esc(BUILDINGS[b].name)}">${icon(BUILDINGS[b].icon)}</span>` : ''}</div>` : '';
+      const [dx, dy] = OPP[LABEL_DIR[id]] || [0, 1];   // een paar pixels weg van de stadsnaam, maar op de stad
+      h += `<div class="stack ${full ? 'full' : ''} ${cubes ? '' : 'nocubes'}" style="--zc:${ZONES[CITIES[id].zone].color};left:calc(${x}% + ${dx * 7}px);top:calc(${y}% + ${dy * 7}px)">
+        ${top}${cubes ? `<div class="cubes">${cubes}</div>` : ''}</div>`;
     }
     for (const z in ZONES) {
       const [x, y] = ZONE_SLOT[z];
@@ -153,15 +153,24 @@ const UI = {
       : `<div class="phase">${S.phase === 'draw' ? 'Kaarten trekken…' : S.phase === 'pressure' ? 'Pressure-fase…' : 'Bezig…'}</div>`}`;
   },
 
+  // handen onder het bord, op leesbaar formaat; handen zijn open (coöperatief)
   renderPlayers() {
-    $('#players').innerHTML = `<div class="sec">SPELERS · handen zijn open</div>` + S.players.map((p, i) => {
+    const order = id => { const c = CARD[id]; return c.kind === 'city' ? COLORS.indexOf(c.color) * 100 + +c.id.slice(1) : 1000; };
+    $('#hands').innerHTML = S.players.map((p, i) => {
       const r = ROLES[p.role];
+      const hand = [...p.hand].sort((a, b) => order(a) - order(b));
+      const count = COLORS.map(c => [c, p.hand.filter(id => CARD[id].kind === 'city' && CARD[id].color === c).length]).filter(([, n]) => n);
+      const need = cureNeed(p);
       return `<div class="pl ${i === S.cur ? 'active' : ''}">
         <div class="top"><span class="dot" style="background:${r.color}">${icon(r.icon)}</span><b>${esc(p.name)}</b>
-          <a href="#" data-zoom="${r.img}" style="color:var(--muted);font-size:12px">${r.name}</a>
-          <small>${esc(cname(p.city))} · ${p.hand.length}/${LIMITS.hand}</small></div>
-        <div class="hand">${p.hand.map(id => `<img src="${CARD[id].img}" data-zoom="${CARD[id].img}" alt="${esc(cardName(id))}" title="${esc(cardName(id))}">`).join('') || '<small style="color:var(--muted)">geen kaarten</small>'}</div>
-        ${p.slot ? `<div class="slot">Op de rolkaart: <img src="${CARD[p.slot].img}" data-zoom="${CARD[p.slot].img}" alt="${esc(CARD[p.slot].title)}"> ${esc(CARD[p.slot].title)}</div>` : ''}
+          <span class="rl">${r.name} · in ${esc(cname(p.city))}</span>
+          <span class="cnt">${count.map(([c, n]) => `<span class="chip ${n >= need && !S.cured[c] ? 'ready' : ''}" title="${n} ${c}e kaarten, doorbraak kost er ${need}"><span class="cube ${c}"></span>${n}</span>`).join('')}</span>
+          <small>${p.hand.length}/${LIMITS.hand}</small></div>
+        <div class="hand">
+          <figure class="role"><img src="${r.img}" data-zoom="${r.img}" alt="${r.name}"><figcaption>rol</figcaption></figure>
+          ${p.slot ? `<figure class="role"><img src="${CARD[p.slot].img}" data-zoom="${CARD[p.slot].img}" alt="${esc(CARD[p.slot].title)}"><figcaption>op de rolkaart</figcaption></figure>` : ''}
+          ${hand.map(id => `<img src="${CARD[id].img}" data-zoom="${CARD[id].img}" alt="${esc(cardName(id))}" title="${esc(cardName(id))}">`).join('') || '<span class="none">geen kaarten</span>'}
+        </div>
       </div>`;
     }).join('');
   },
